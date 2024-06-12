@@ -1,0 +1,138 @@
+;Hacer Yeter Akinci 150200007
+
+ARR_SIZE		EQU 	100
+ARR_SIZE_M		EQU     4 * ARR_SIZE
+
+				AREA 	SourceData, DATA, readonly
+source			DCD		0xa603e9e1, 0xb38cf45a, 0xf5010841, 0x32477961, 0x10bc09c5
+				DCD		0x5543db2b, 0xd09b0bf1, 0x2eef070e, 0xe8e0e237, 0xd6ad2467 
+				DCD		0xc65a478b, 0xbd7bbc07, 0xa853c4bb, 0xfe21ee08, 0xa48b2364 
+				DCD		0x40c09b9f, 0xa67aff4e, 0x86342d4a, 0xee64e1dc, 0x87cdcdcc 
+				DCD		0x2b911058, 0xb5214bbc, 0xff4ecdd7, 0x3da3f26, 0xc79b2267 
+				DCD		0x6a72a73a, 0xd0d8533d, 0x5a4af4a6, 0x5c661e05, 0xc80c1ae8 
+				DCD		0x2d7e4d5a, 0x84367925, 0x84712f8b, 0x2b823605, 0x17691e64 
+				DCD		0xea49cba, 0x1d4386fb, 0xb085bec8, 0x4cc0f704, 0x76a4eca9 
+				DCD		0x83625326, 0x95fa4598, 0xe82d995e, 0xc5fb78cb, 0xaf63720d 
+				DCD		0xeb827b5, 0xcc11686d, 0x18db54ac, 0x8fe9488c, 0xe35cf1
+				DCD		0xd80ec07d, 0xbdfcce51, 0x9ef8ef5c, 0x3a1382b2, 0xe1480a2a 
+				DCD		0xfe3aae2b, 0x2ef7727c, 0xda0121e1, 0x4b610a78, 0xd30f49c5 
+				DCD		0x1a3c2c63, 0x984990bc, 0xdb17118a, 0x7dae238f, 0x77aa1c96 
+				DCD		0xb7247800, 0xb117475f, 0xe6b2e711, 0x1fffc297, 0x144b449f 
+				DCD		0x6f08b591, 0x4e614a80, 0x204dd082, 0x163a93e0, 0xeb8b565a 
+				DCD		0x5326831, 0xf0f94119, 0xeb6e5842, 0xd9c3b040, 0x9a14c068 
+				DCD		0x38ccce54, 0x33e24bae, 0xc424c12b, 0x5d9b21ad, 0x355fb674 
+				DCD		0xb224f668, 0x296b3f6b, 0x59805a5f, 0x8568723b, 0xb9f49f9d 
+				DCD		0xf6831262, 0x78728bab, 0x10f12673, 0x984e7bee, 0x214f59a2 
+				DCD		0xfb088de7, 0x8b641c20, 0x72a0a379, 0x225fe86a, 0xd98a49f3
+source_end
+				AREA Array, data, readwrite
+				ALIGN
+array 			SPACE ARR_SIZE_M				
+array_end
+times		 	SPACE ARR_SIZE_M				
+times_end
+
+SysTick_CTRL    EQU    	0xE000E010
+SysTick_RELOAD  EQU    	0xE000E014   
+SysTick_VAL     EQU    	0xE000E018
+CPU_CLOCK		EQU 	25
+RELOAD			EQU		971999
+START			EQU		0x7
+STOP			EQU 	0x6				
+	
+				AREA bubbleSort, code , readonly
+				ALIGN
+__main			FUNCTION
+				EXPORT __main
+				BL 		Init_SysTick_Timer
+
+				MOVS 	R3, #8 ; i = 2
+				LDR  	R0, =array ; M[sorted array] -> R0
+				LDR  	R1, =times ; M[execution times array] -> R0
+				
+ForLoop			LDR  	R4, =ARR_SIZE_M
+				CMP	 	R3, R4
+				BGT  	EndForLoop
+				MOVS 	R7, #0 ; variable to keep index of array while copy operation 
+				LDR	 	R2, =source 
+				BL   	CopyArray
+				
+				LDR  	R2, =SysTick_CTRL
+				MOVS 	R4, #0 ; clear R4
+				STR  	R4, [R2, #8] ; clear current value register to calculate time properly
+				LDR  	R2, =SysTick_VAL
+				LDR  	R4, [R2]
+				STR  	R4, [R1, R3] ;Store start time at times[i] in memory
+				
+				MOVS 	R7, #0	; variable to keep index of array while BubbleSort operation
+				SUBS	R3, R3, #4 ; size - 1 is used
+				BL 		BubbleSort
+				ADDS 	R3, R3, #4 ; return the size
+				LDR  	R4, [R1, R3] ; start_time
+				LDR  	R2, =SysTick_VAL
+				LDR  	R5, [R2] ; end_time
+				SUBS 	R4, R4, R5 ;(start_time - end_time)
+				LDR  	R7, =CPU_CLOCK
+				MOVS 	R2, #0
+				BL   	Division 
+				STR  	R2, [R1, R3] ; times[i] = Execution time(cycle) /CPU_CLOCK = Execution time (microseconds)
+				ADDS 	R3, R3, #4	;increase i by 1
+				B 		ForLoop
+
+CopyArray		CMP		R7, R3
+				BLT 	continue
+				BX 		LR
+continue		LDR 	R4, [R2, R7]
+				STR 	R4, [R0, R7]
+				ADDS 	R7, R7, #4
+				B 		CopyArray				
+				
+EndForLoop		BL 		Stop_SysTick_Timer
+loop			B 		loop			
+
+BubbleSort		CMP		R7, R3 ; R1 = i, R3 = ARR_SIZE
+				BLT 	L1
+				BX 		LR
+L1				MOVS 	R2, #0 ; R2 = j
+				MOVS	R4, R3 
+				SUBS	R4, R4, R7 ; R4 = ARR_SIZE - i
+L2				CMP 	R2, R4
+				BGE 	EndL2
+				LDR 	R5, [R0, R2] ;array[j] = R5
+				ADDS 	R2, R2, #4
+				LDR 	R6, [R0, R2] ;array[j+1] = R6
+				CMP 	R5, R6 ; compare array[j] < array[j+1]
+				BLS 	L2 ; if greater, then swap
+				STR 	R5, [R0, R2] ; array[j+1] = R5
+				SUBS 	R2, R2, #4
+				STR 	R6, [R0, R2] ; array[j] = R6
+				ADDS 	R2, R2, #4
+				B 		L2				
+EndL2			ADDS 	R7, R7, #4
+				B 		BubbleSort
+				
+Division 		CMP 	R4, R7
+				BGE 	Div
+				BX 		LR
+Div				SUBS 	R4, R4, R7
+				ADDS 	R2, R2, #1
+				B 		Division
+
+Init_SysTick_Timer
+				LDR 	R2, =SysTick_CTRL
+				LDR		R3, =SysTick_RELOAD
+				LDR		R4, =RELOAD
+				LDR		R5, =START
+				STR		R4, [R3] ; Store reload value to reload value register
+				STR		R5, [R2] ; Set Enable, Clock and Interrupt Flags
+				BX 		LR
+				
+Stop_SysTick_Timer
+				LDR 	R2, =SysTick_CTRL
+				LDR		R5, =STOP		
+				STR		R5, [R2] ; Disable interrupt	
+				BX 		LR
+
+
+				ENDFUNC
+				END
